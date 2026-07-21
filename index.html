@@ -1,0 +1,810 @@
+<!DOCTYPE html>
+<html lang="ja" data-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Operation Value Calculator</title>
+    <style>
+        /* --- デザインシステム & 変数定義 (白黒ベース) --- */
+        :root[data-theme="dark"] {
+            --bg-main: #121212;
+            --bg-card: #1e1e1e;
+            --bg-input: #2a2a2a;
+            --border-color: #3d3d3d;
+            --text-main: #ffffff;
+            --text-muted: #aaaaaa;
+            --accent: #ffffff;
+            --accent-hover: #e0e0e0;
+            --shadow: rgba(0, 0, 0, 0.5);
+        }
+
+        :root[data-theme="light"] {
+            --bg-main: #f5f5f5;
+            --bg-card: #ffffff;
+            --bg-input: #ffffff;
+            --border-color: #e0e0e0;
+            --text-main: #1a1a1a;
+            --text-muted: #666666;
+            --accent: #1a1a1a;
+            --accent-hover: #333333;
+            --shadow: rgba(0, 0, 0, 0.05);
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            transition: background-color 0.3s, border-color 0.3s, color 0.3s;
+        }
+
+        body {
+            background-color: var(--bg-main);
+            color: var(--text-main);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        /* --- メインコンテナ --- */
+        .app-container {
+            width: 100%;
+            max-width: 800px;
+            background-color: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            box-shadow: 0 8px 32px var(--shadow);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            min-height: 680px;
+        }
+
+        /* --- ヘッダー・ナビゲーション --- */
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 20px;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .nav-left, .nav-right {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+        }
+
+        .btn {
+            background-color: transparent;
+            color: var(--text-main);
+            border: 1px solid var(--border-color);
+            padding: 8px 16px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 500;
+        }
+
+        .btn:hover {
+            background-color: var(--text-main);
+            color: var(--bg-main);
+            border-color: var(--text-main);
+        }
+
+        .btn-icon {
+            padding: 8px 12px;
+        }
+
+        /* --- メインコンテンツ枠 --- */
+        .main-content {
+            flex: 1;
+            padding: 24px;
+            display: none;
+        }
+
+        .main-content.active {
+            display: block;
+        }
+
+        /* --- 数式表示セクション --- */
+        .formula-box {
+            background-color: var(--bg-input);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 16px;
+            text-align: center;
+            margin-bottom: 24px;
+        }
+
+        .formula-text {
+            font-family: monospace;
+            font-size: 0.95rem;
+            white-space: pre-line;
+            color: var(--text-muted);
+            line-height: 1.5;
+            margin-bottom: 12px;
+        }
+
+        .realtime-score {
+            font-size: 1.25rem;
+            font-weight: bold;
+        }
+
+        .toggle-ribbon {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            margin-top: 12px;
+            font-size: 0.85rem;
+        }
+
+        .toggle-label {
+            color: var(--text-muted);
+            cursor: pointer;
+        }
+
+        .toggle-label.active {
+            color: var(--text-main);
+            font-weight: bold;
+            text-decoration: underline;
+        }
+
+        /* --- グリッド入力 --- */
+        .input-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 20px;
+            margin-bottom: 24px;
+        }
+
+        .input-group {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .input-group label {
+            font-size: 0.85rem;
+            color: var(--text-muted);
+        }
+
+        /* 数値のドラッグ/スライドエミュレーション付き入力欄 */
+        .slider-input-wrapper {
+            position: relative;
+            display: flex;
+            align-items: center;
+        }
+
+        .num-input {
+            width: 100%;
+            background-color: var(--bg-input);
+            border: 1px solid var(--border-color);
+            color: var(--text-main);
+            padding: 12px;
+            border-radius: 6px;
+            font-size: 1.1rem;
+            text-align: center;
+            cursor: ew-resize; /* 左右ドラッグ可能を視覚化 */
+            user-select: none;
+        }
+
+        .num-input:focus {
+            outline: none;
+            border-color: var(--text-main);
+        }
+
+        /* --- 結果画面 --- */
+        .result-view {
+            text-align: center;
+            padding: 20px 0;
+        }
+
+        .large-score {
+            font-size: 4.5rem;
+            font-weight: 800;
+            line-height: 1;
+            margin: 20px 0 5px 0;
+        }
+
+        .large-pct {
+            font-size: 1.75rem;
+            color: var(--text-muted);
+            margin-bottom: 30px;
+        }
+
+        .memo-wrapper {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            max-width: 500px;
+            margin: 0 auto;
+        }
+
+        .text-input {
+            flex: 1;
+            background-color: var(--bg-input);
+            border: 1px solid var(--border-color);
+            color: var(--text-main);
+            padding: 10px;
+            border-radius: 6px;
+        }
+
+        /* --- 履歴テーブル --- */
+        .history-table-wrapper {
+            overflow-y: auto;
+            max-height: 450px;
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+        }
+
+        .history-table {
+            width: 100%;
+            border-collapse: collapse;
+            text-align: left;
+            font-size: 0.9rem;
+        }
+
+        .history-table th, .history-table td {
+            padding: 12px 16px;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .history-table th {
+            background-color: var(--bg-input);
+            font-weight: 600;
+            position: sticky;
+            top: 0;
+        }
+
+        /* --- フッター --- */
+        footer {
+            padding: 16px 24px;
+            border-top: 1px solid var(--border-color);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 0.85rem;
+            color: var(--text-muted);
+        }
+
+        /* --- 言語設定画面 --- */
+        .lang-setting-view {
+            text-align: center;
+            padding-top: 40px;
+        }
+
+        .lang-options {
+            display: flex;
+            justify-content: center;
+            gap: 40px;
+            margin-top: 30px;
+        }
+
+        .lang-btn {
+            font-size: 1.5rem;
+            background: none;
+            border: none;
+            color: var(--text-muted);
+            cursor: pointer;
+            padding-bottom: 4px;
+        }
+
+        .lang-btn.active {
+            color: var(--text-main);
+            border-bottom: 2px solid var(--text-main);
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+
+<div class="app-container">
+    <!-- ナビゲーションヘッダー -->
+    <header>
+        <div class="nav-left">
+            <button class="btn" id="btn-nav-history" onclick="switchPhase('history')">記録確認</button>
+        </div>
+        <div class="nav-right">
+            <button class="btn btn-icon" id="btn-back" onclick="goBackHistory()">←</button>
+            <button class="btn btn-icon" id="btn-forward" onclick="goForwardHistory()">→</button>
+            <button class="btn" id="btn-nav-input" onclick="switchPhase('input')">値入力へ</button>
+            <button class="btn btn-icon" id="btn-theme" onclick="toggleTheme()">🌓</button>
+            <button class="btn" id="btn-nav-lang" onclick="switchPhase('lang_settings')">言語</button>
+        </div>
+    </header>
+
+    <!-- 1. 入力フェーズ -->
+    <main id="phase-input" class="main-content active">
+        <div class="formula-box">
+            <div id="formula-text" class="formula-text"></div>
+            <div id="realtime-res" class="realtime-score"></div>
+            <div class="toggle-ribbon">
+                <button class="btn btn-icon" style="padding:2px 6px;" onclick="toggleBMode()">🔄</button>
+                <span id="mode-none" class="toggle-label" onclick="toggleBMode()">飽き無し</span>
+                <span>/</span>
+                <span id="mode-exist" class="toggle-label" onclick="toggleBMode()">飽きあり</span>
+            </div>
+        </div>
+
+        <div class="input-grid" id="input-fields-container">
+            <!-- JavaScriptで動的生成/テキスト更新 -->
+        </div>
+    </main>
+
+    <!-- 2. 結果フェーズ -->
+    <main id="phase-result" class="main-content">
+        <div class="formula-box">
+            <div id="res-formula-text" class="formula-text"></div>
+        </div>
+        <div class="result-view">
+            <div id="large-score" class="large-score">0.0</div>
+            <div id="large-pct" class="large-pct">(0.0%)</div>
+            
+            <div class="memo-wrapper">
+                <label id="lbl-memo-edge" style="font-size:0.9rem; min-width:70px; text-align:left;">メモ記録:</label>
+                <input type="text" id="result-memo-input" class="text-input" oninput="updateCurrentMemo(this.value)">
+            </div>
+        </div>
+    </main>
+
+    <!-- 3. 履歴フェーズ -->
+    <main id="phase-history" class="main-content">
+        <div class="history-table-wrapper">
+            <table class="history-table">
+                <thead>
+                    <tr>
+                        <th id="th-date" style="width: 30%;">記録日時</th>
+                        <th id="th-score" style="width: 25%;">計算結果</th>
+                        <th id="th-memo" style="width: 45%;">メモ</th>
+                    </tr>
+                </thead>
+                <tbody id="history-tbody">
+                    <!-- 履歴データ挿入箇所 -->
+                </tbody>
+            </table>
+        </div>
+    </main>
+
+    <!-- 4. 言語設定フェーズ -->
+    <main id="phase-lang_settings" class="main-content">
+        <div class="lang-setting-view">
+            <h3 id="lang-title">言語設定 / Language Settings</h3>
+            <div class="lang-options">
+                <button id="lang-ja" class="lang-btn" onclick="changeLanguage('ja')">日本語</button>
+                <button id="lang-en" class="lang-btn" onclick="changeLanguage('en')">English</button>
+            </div>
+        </div>
+    </main>
+
+    <!-- フッター -->
+    <footer>
+        <div style="font-size:0.8rem;">Operation Value Calculator</div>
+        <div id="lbl-status">リアルタイムに記録中...</div>
+        <div id="footer-action-area">
+            <!-- 状況に応じて「記録」ボタンなどが表示される領域 -->
+        </div>
+    </footer>
+</div>
+
+<script>
+    // --- 状態管理オブジェクト (LocalStorage同期) ---
+    const KEY_MAP = { "a1": "S", "a2": "W", "b1": "B", "b2": "VA", "c1": "AV", "c2": "RW" };
+    
+    let appData = {
+        inputs: { a1: 0.0, a2: 0.0, b1: 0.0, b2: 0.0, c1: 0.0, c2: 0.0 },
+        current_phase: "input",
+        current_score: 0.0,
+        current_percentage: 0.0,
+        current_memo: "",
+        b_enabled: true,
+        lang: "ja",
+        records: [],
+        phase_history: ["input"],
+        history_index: 0
+    };
+
+    // 多言語マッピング
+    const trans = {
+        ja: {
+            title: "Operation Value Calculator", history_btn: "記録確認", input_btn: "値入力へ",
+            lang_btn: "言語", calc_btn: "記録", memo_lbl: "メモ記録:",
+            status_lbl: "リアルタイムに記録中...", history_title: "記録日時", result_title: "計算結果",
+            memo_title: "メモ", lang_title: "言語設定 / Language Settings",
+            a1: "S: 操作習得度/分かりやすさ (0.0 - 10.0)", a2: "W: 出現希少性/表示頻度の少なさ (0.0 - 10.0)",
+            b1: "B: 関与損失度/飽き・退屈 (0.0 - 10.0)", b2: "VA: 報酬ポテンシャルの数 (0.0 - 10.0)",
+            c1: "AV: 報酬ポテンシャルの平均質 (0.0 - 10.0)", c2: "RW: 報酬到達深度/実報酬までの遠さ (0.0 - 10.0)"
+        },
+        en: {
+            title: "Operation Value Calculator", history_btn: "History", input_btn: "Input",
+            lang_btn: "Language", calc_btn: "Record", memo_lbl: "Memo:",
+            status_lbl: "Recording in real time...", history_title: "Date", result_title: "Score",
+            memo_title: "Memo", lang_title: "Language Settings / 言語設定",
+            a1: "S: Simple (0.0 - 10.0)", a2: "W: Wait (0.0 - 10.0)",
+            b1: "B: Bored (0.0 - 10.0)", b2: "Value Amount (0.0 - 10.0)",
+            c1: "AV: Average Value (0.0 - 10.0)", c2: "Reward's Wait (0.0 - 10.0)"
+        }
+    };
+
+    // --- 初期化処理 ---
+    window.addEventListener('DOMContentLoaded', () => {
+        // ローカルストレージから復元試行
+        const saved = localStorage.getItem('erosa_app_data');
+        if (saved) {
+            try { 
+                const parsed = JSON.parse(saved);
+                // 構造が変わっていないか検証しマージ
+                if (parsed.inputs) appData = { ...appData, ...parsed };
+            } catch(e) { console.error(e); }
+        }
+        
+        // デフォルトテーマの適用
+        if(!localStorage.getItem('theme')) {
+            document.documentElement.setAttribute('data-theme', 'dark');
+        } else {
+            document.documentElement.setAttribute('data-theme', localStorage.getItem('theme'));
+        }
+
+        renderInputFields();
+        switchPhase(appData.current_phase, false);
+        updateCalc();
+    });
+
+    function saveToStorage() {
+        localStorage.setItem('erosa_app_data', JSON.stringify(appData));
+    }
+
+    // --- テーマ切り替え ---
+    function toggleTheme() {
+        const current = document.documentElement.getAttribute('data-theme');
+        const target = current === 'light' ? 'dark' : 'light';
+        document.documentElement.setAttribute('data-theme', target);
+        localStorage.setItem('theme', target);
+    }
+
+    // --- Erosaロジック計算基盤 ---
+    function calculateErosa(vals, b_enabled) {
+        const S = Math.max(0.0, Math.min(10.0, vals.a1));
+        const W = Math.max(0.0, Math.min(10.0, vals.a2));
+        const B = b_enabled ? Math.max(0.0, Math.min(10.0, vals.b1)) : 0.0;
+        const VA = Math.max(0.0, Math.min(10.0, vals.b2));
+        const AV = Math.max(0.0, Math.min(10.0, vals.c1));
+        const RW = Math.max(0.0, Math.min(10.0, vals.c2));
+
+        const ov_pure = (VA * Math.pow(AV, 1.25)) * (1.0 - (9.0 / 100.0) * RW) * (S / 10.0);
+        const max_possible = 600.0;
+        let effect_multiplier = 0.0;
+
+        if (b_enabled) {
+            effect_multiplier = 6.0 * Math.pow(1.115, -W) * Math.pow(0.78, B);
+        } else {
+            effect_multiplier = 6.0 * (W / 10.0);
+        }
+
+        const ov_effective = effect_multiplier * ov_pure;
+        const score = Math.round(ov_effective * 10) / 10;
+        const percentage = max_possible > 0 ? Math.round((score / max_possible) * 100 * 10) / 10 : 0.0;
+
+        return { score, percentage };
+    }
+
+    function updateCalc() {
+        const { score, percentage } = calculateErosa(appData.inputs, appData.b_enabled);
+        appData.current_score = score;
+        appData.current_percentage = percentage;
+        
+        // 各種表示の同期
+        updateFormulaUI();
+        saveToStorage();
+    }
+
+    // --- UI更新系 ---
+    function updateFormulaUI() {
+        const disp = {};
+        for (const [k, varName] of Object.entries(KEY_MAP)) {
+            const val = appData.inputs[k];
+            disp[varName] = val === 0 ? varName : val.toFixed(1);
+        }
+
+        const avDisp = disp.AV === "AV" ? "AV^1.25" : `${disp.AV}^1.25`;
+
+        let formulaStr = "";
+        if (appData.b_enabled) {
+            formulaStr = `OV = [ 6.0 × 1.115^(-${disp.W}) × 0.78^(${disp.B}) ]\n × [ (${disp.VA} × ${avDisp}) × (1 - 9/100 * ${disp.RW}) ] × (${disp.S} / 10)`;
+        } else {
+            formulaStr = `OV = [ ${disp.W} / 10.0 ]\n × [ (${disp.VA} × ${avDisp}) × (1 - 9/100 * ${disp.RW}) ] × (${disp.S} / 10)`;
+        }
+
+        // 各フェーズの数式テキスト
+        document.getElementById('formula-text').innerText = formulaStr;
+        document.getElementById('res-formula-text').innerText = formulaStr;
+
+        // リアルタイムスコアテキスト
+        const t = trans[appData.lang];
+        document.getElementById('realtime-res').innerText = `${appData.lang === 'ja' ? '現在値' : 'Current'}: ${appData.current_score} (${appData.current_percentage}%)`;
+
+        // トグルラベル状態
+        if (appData.b_enabled) {
+            document.getElementById('mode-none').classList.remove('active');
+            document.getElementById('mode-exist').classList.add('active');
+        } else {
+            document.getElementById('mode-none').classList.add('active');
+            document.getElementById('mode-exist').classList.remove('active');
+        }
+
+        // 結果画面の反映
+        document.getElementById('large-score').innerText = appData.current_score.toFixed(1);
+        document.getElementById('large-pct').innerText = `(${appData.current_percentage.toFixed(1)}%)`;
+    }
+
+    function renderInputFields() {
+        const container = document.getElementById('input-fields-container');
+        container.innerHTML = '';
+        const t = trans[appData.lang];
+
+        const keys = ["a1", "a2", "b1", "b2", "c1", "c2"];
+        keys.forEach(k => {
+            const group = document.createElement('div');
+            group.className = 'input-group';
+
+            const label = document.createElement('label');
+            label.id = `lbl-key-${k}`;
+            label.innerText = t[k];
+
+            const wrapper = document.createElement('div');
+            wrapper.className = 'slider-input-wrapper';
+
+            const input = document.createElement('input');
+            input.type = 'text';
+            input.className = 'num-input';
+            input.value = appData.inputs[k].toFixed(1);
+            input.readOnly = true; // マウス/タッチ移動専用
+
+            // --- スライド・ドラッグ入力の実装 ---
+            let isDragging = false;
+            let startX = 0;
+            let startVal = 0;
+
+            const startDrag = (e) => {
+                isDragging = true;
+                startX = e.pageX || e.touches[0].pageX;
+                startVal = appData.inputs[k];
+                input.style.borderColor = 'var(--text-main)';
+                document.body.style.cursor = 'ew-resize';
+            };
+
+            const doDrag = (e) => {
+                if (!isDragging) return;
+                const currentX = e.pageX || e.touches[0].pageX;
+                const dx = currentX - startX;
+                const diff = Math.round(dx / 10) * 0.5; // 10pxごとに0.5変化
+                let newVal = Math.max(0.0, Math.min(10.0, startVal + diff));
+                
+                appData.inputs[k] = newVal;
+                input.value = newVal.toFixed(1);
+                updateCalc();
+            };
+
+            const stopDrag = () => {
+                if (isDragging) {
+                    isDragging = false;
+                    input.style.borderColor = '';
+                    document.body.style.cursor = '';
+                    saveToStorage();
+                }
+            };
+
+            // マウスイベント
+            input.addEventListener('mousedown', startDrag);
+            window.addEventListener('mousemove', doDrag);
+            window.addEventListener('mouseup', stopDrag);
+
+            // タッチイベント (モバイル対応)
+            input.addEventListener('touchstart', startDrag, { passive: true });
+            window.addEventListener('touchmove', doDrag, { passive: false });
+            window.addEventListener('touchend', stopDrag);
+
+            wrapper.appendChild(input);
+            group.appendChild(label);
+            group.appendChild(wrapper);
+            container.appendChild(group);
+        });
+    }
+
+    function toggleBMode() {
+        appData.b_enabled = !appData.b_enabled;
+        updateCalc();
+    }
+
+    // --- フェーズ切り替えと履歴制御 (ナビゲーション) ---
+    function switchPhase(targetPhase, pushHistory = true) {
+        if (pushHistory) {
+            appData.phase_history = appData.phase_history.slice(0, appData.history_index + 1);
+            appData.phase_history.push(targetPhase);
+            if (appData.phase_history.length > 5) {
+                appData.phase_history = appData.phase_history.slice(-5);
+            }
+            appData.history_index = appData.phase_history.length - 1;
+        }
+
+        appData.current_phase = targetPhase;
+        
+        // DOMクラスのアクティブ制御
+        document.querySelectorAll('.main-content').forEach(el => el.classList.remove('active'));
+        const activeMain = document.getElementById(`phase-${targetPhase}`);
+        if(activeMain) activeMain.classList.add('active');
+
+        // フッター固定アクションボタンエリアの制御
+        const actionArea = document.getElementById('footer-action-area');
+        actionArea.innerHTML = '';
+        const t = trans[appData.lang];
+
+        if (targetPhase === 'input') {
+            const calcBtn = document.createElement('button');
+            calcBtn.className = 'btn';
+            calcBtn.innerText = t.calc_btn;
+            calcBtn.onclick = executeRecording;
+            actionArea.appendChild(calcBtn);
+            document.getElementById('lbl-status').innerText = t.status_lbl;
+        } else {
+            document.getElementById('lbl-status').innerText = '';
+        }
+
+        if (targetPhase === 'history') {
+            renderHistoryTable();
+        }
+
+        updateArrowButtons();
+        refreshTextStrings();
+        saveToStorage();
+    }
+
+    function goBackHistory() {
+        if (appData.history_index > 0) {
+            appData.history_index--;
+            switchPhase(appData.phase_history[appData.history_index], false);
+        }
+    }
+
+    function goForwardHistory() {
+        if (appData.history_index < appData.phase_history.length - 1) {
+            appData.history_index++;
+            switchPhase(appData.phase_history[appData.history_index], false);
+        }
+    }
+
+    function updateArrowButtons() {
+        const btnBack = document.getElementById('btn-back');
+        const btnForward = document.getElementById('btn-forward');
+
+        btnBack.disabled = appData.history_index <= 0;
+        btnForward.disabled = appData.history_index >= appData.phase_history.length - 1;
+        
+        // 透過度変更などで無効状態を可視化
+        btnBack.style.opacity = btnBack.disabled ? "0.4" : "1";
+        btnForward.style.opacity = btnForward.disabled ? "0.4" : "1";
+    }
+
+    // --- 記録実行 & 各メモ編集 ---
+    function executeRecording() {
+        const { score, percentage } = calculateErosa(appData.inputs, appData.b_enabled);
+        appData.current_score = score;
+        appData.current_percentage = percentage;
+        appData.current_memo = "";
+        
+        document.getElementById('result-memo-input').value = "";
+
+        const now = new Date();
+        const dateStr = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')} ${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}:${String(now.getSeconds()).padStart(2,'0')}`;
+
+        appData.records.push({
+            id: String(Date.now()),
+            date: dateStr,
+            score: score,
+            percentage: percentage,
+            memo: ""
+        });
+
+        switchPhase("result");
+    }
+
+    function updateCurrentMemo(val) {
+        appData.current_memo = val;
+        if (appData.records.length > 0) {
+            appData.records[appData.records.length - 1].memo = val;
+        }
+        saveToStorage();
+    }
+
+    function updatePastMemo(id, val) {
+        const record = appData.records.find(r => r.id === id);
+        if (record) {
+            record.memo = val;
+        }
+        saveToStorage();
+    }
+
+    // 過去ログテーブルのレンダリング
+    function renderHistoryTable() {
+        const tbody = document.getElementById('history-tbody');
+        tbody.innerHTML = '';
+        
+        // 新しい順に配置
+        const reversedRecords = [...appData.records].reverse();
+
+        reversedRecords.forEach(r => {
+            const tr = document.createElement('tr');
+
+            const tdDate = document.createElement('td');
+            tdDate.innerText = r.date;
+
+            const tdScore = document.createElement('td');
+            tdScore.innerText = `${r.score.toFixed(1)} (${r.percentage.toFixed(1)}%)`;
+
+            const tdMemo = document.createElement('td');
+            const input = document.createElement('input');
+            input.type = 'text';
+            input.className = 'text-input';
+            input.style.width = '100%';
+            input.value = r.memo || '';
+            input.oninput = (e) => updatePastMemo(r.id, e.target.value);
+
+            tdMemo.appendChild(input);
+            tr.appendChild(tdDate);
+            tr.appendChild(tdScore);
+            tr.appendChild(tdMemo);
+            tbody.appendChild(tr);
+        });
+    }
+
+    // --- 言語切り替え処理 ---
+    function changeLanguage(lang) {
+        appData.lang = lang;
+        refreshTextStrings();
+        renderInputFields(); // ラベルリフレッシュのために再生成
+        updateFormulaUI();
+        saveToStorage();
+
+        document.getElementById('lang-ja').classList.toggle('active', lang === 'ja');
+        document.getElementById('lang-en').classList.toggle('active', lang === 'en');
+    }
+
+    function refreshTextStrings() {
+        const t = trans[appData.lang];
+        
+        // ヘッダーボタン
+        document.getElementById('btn-nav-history').innerText = t.history_btn;
+        document.getElementById('btn-nav-input').innerText = t.input_btn;
+        document.getElementById('btn-nav-lang').innerText = t.lang_btn;
+
+        // 言語設定ビュータイトル
+        document.getElementById('lang-title').innerText = t.lang_title;
+        document.getElementById('lang-ja').classList.toggle('active', appData.lang === 'ja');
+        document.getElementById('lang-en').classList.toggle('active', appData.lang === 'en');
+
+        // 各ラベル＆ヘッダー
+        document.getElementById('lbl-memo-edge').innerText = t.memo_lbl;
+        document.getElementById('th-date').innerText = t.history_title;
+        document.getElementById('th-score').innerText = t.result_title;
+        document.getElementById('th-memo').innerText = t.memo_title;
+
+        if(appData.current_phase === 'input') {
+            document.getElementById('lbl-status').innerText = t.status_lbl;
+        }
+
+        // グリッドラベルの一括更新
+        const keys = ["a1", "a2", "b1", "b2", "c1", "c2"];
+        keys.forEach(k => {
+            const lbl = document.getElementById(`lbl-key-${k}`);
+            if(lbl) lbl.innerText = t[k];
+        });
+    }
+</script>
+</body>
+</html>
